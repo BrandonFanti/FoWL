@@ -1,0 +1,49 @@
+{
+    "f2b":{
+        "ban":[
+            {
+                "name": "Block hosts who touch port 22",
+                "rule": "tcp.syn and dst.port.22",
+                "period": "forever"
+            },
+            {
+                "name": "Block hosts who touch port 80",
+                "rule": "tcp.syn and dst.port.80",
+                "period": "forever"
+            }
+        ]
+    },
+    "knock":{
+        "unlock_sequences":[
+            {
+                "name":"Unlock ssh",
+                "sequence":[
+                    "tcp.fin and (dst.port=9999 or src.port=5555)",
+                    "udp and src.port=5555",
+                    "tcp.rst and (dst.port=9999 or src.port=5555)"
+                ],
+                "period": "hours=8"
+            }
+        ]
+    },
+    "custom_handler":[
+        {
+            "name":"default_handler",
+            "description": "Banned host's will receive the 'Hackneyed' server's 'Lame' title page - for any port",
+            "with": "sample_custom_handler.handle"
+        },
+        {
+            "name":"Banned",
+            "description": "Banned host's will receive the 'Hackneyed' server's 'Lame' title page - for any port",
+            "rule": "host.banned and tcp.syn == any",
+            "with": "sample_custom_handler.handle"
+        }
+    ],
+    "notify":[
+        {
+            "name":"Notify device connection",
+            "method":"MQTT",
+            "rule": "dhcp and device.mac == 'fe:64:b7:67:66:9C' or True"
+        }
+    ]
+}

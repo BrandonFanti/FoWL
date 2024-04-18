@@ -1,0 +1,3 @@
+[submodule "src/lazy_logger"]
+	path = src/lazy_logger
+	url = https://github.com/BrandonFanti/lazy_logger/

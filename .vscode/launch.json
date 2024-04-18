@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Run in GDB",
+            "type":"gdb",
+            "gdbpath": "${workspaceFolder}/gdb",
+            "request": "launch",
+            "target": ".venv/bin/python",
+            "arguments": "${file}",
+            "cwd": "${workspaceFolder}",
+        },
+        {
+            "name": "Run",
+            "request": "launch",
+            "preLaunchTask":"Launch"
+        },
+    ]
+}
