@@ -96,7 +96,20 @@ Fairly early on, I decided a merge of those 3 things was "a solid thing to make"
 I deeply expand on "the why", and this vision at the very bottom of the readme - forewarning: its a lot. 
 
 > # and I use it how? 
-A basic sample is provided, `FOWLWALL.JSON`, that demonstrates the main 3 functions presented under the last question.
+
+That depends...
+
+<img src=src/visualization/assets/who_ru.jpg alt="who_ru.jpg">
+
+Are you...
+### Blue team - a firewall
+  A basic sample is provided, `FOWLWALL.JSON`, that demonstrates the main 3 functions (bannable conditions, knock->unlock conditions, respond conditions AND actions, and BONUS: a simple notification service)
+
+  More info on the rules of this file/the-tokenizer as they are written.
+
+or, are you...
+### Red team - a recon tool
+  Running a captured `pcap` through `FoWL.py` analysis tools and viewing them in the visualizer is one approach to get a "big picture" of the network, and fairly easily discern what devices are in-view.
 
 </details>
 
