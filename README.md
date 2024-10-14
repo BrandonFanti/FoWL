@@ -111,6 +111,8 @@ or, are you...
 ### Red team - a recon tool
   Running a captured `pcap` through `FoWL.py` analysis tools and viewing them in the visualizer is one approach to get a "big picture" of the network, and fairly easily discern what devices are in-view.
 
+Really, all teams should have awareness of all tools - to prepare for the opposition - "Know your enemy."
+
 </details>
 
 <details>
