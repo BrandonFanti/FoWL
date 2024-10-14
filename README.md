@@ -12,7 +12,7 @@
 > "The quieter you become, the more you are able to hear"
 
 
-# UI Sample:
+## UI Sample:
 <img src=src/visualization/assets/sample.png alt="sample.png">
 
 <details>
@@ -20,6 +20,7 @@
 *Note - concerning shrug.jpg 
 </summary>
 It appears for 2 reasons:
+
  1. Your sensor has not collected any data relevant to the visualizer-segment.
  2. In IP->IP graphs:
     - if you don't have the network configured for the interface used in collection, or 
