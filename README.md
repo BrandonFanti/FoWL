@@ -1,4 +1,9 @@
-# Fog Of War Listener - FOWL - a network traffic inspection and injection tool.
+<p align="center">
+<img src=src/visualization/assets/fowl.png alt="fowl.png" width="30%" margin=auto>
+</p>
+
+# Fog Of War Listener - FOWL 
+## --- a network traffic inspection and injection tool.
 
 > The "fog of war" is the uncertainty in situational awareness experienced by participants in military operations. 
 
@@ -6,9 +11,25 @@
 
 > "The quieter you become, the more you are able to hear"
 
+
+# UI Sample:
+<img src=src/visualization/assets/sample.png alt="sample.png">
+
+<details>
+<summary> 
+*Note - concerning shrug.jpg 
+</summary>
+It appears for 2 reasons:
+ 1. Your sensor has not collected any data relevant to the visualizer-segment.
+ 2. In IP->IP graphs:
+    - if you don't have the network configured for the interface used in collection, or 
+    - ran a PCAP through `FOWL.py` with `-f $file`/`--pcap $file`
+</details>
+
 ### Quick HELP
 ```
-usage: FOWL [-h] [--setup-firewall] [-i] [-d] [-l ADDRESS] [-p PORTS]
+usage: FOWL [-h] [--setup-firewall] [--no-timeout] [-f FILE] [--pcap-filter PCAP_FILTER] [-i] [-v]
+            [--crash-on-handler-exception] [--suppress-handler-unhandled] [-l ADDRESS] [-p PORTS]
 
 Fog Of War Listener - FOWL - a network traffic inspection and injection tool.
 
@@ -16,8 +37,16 @@ options:
   -h, --help            show this help message and exit
   --setup-firewall      Setup firewall rules to DROP traffic, and allow us to respond over the raw sockets
                                             WARNING: This WILL WIPE existing rules, and is not persistent (in itself) 
+  --no-timeout          Disables the default capture window of 5 minutes
+  -f FILE, --pcap FILE  Analyze a pcap file
+  --pcap-filter PCAP_FILTER
+                        Apply a custom pcap-filter to constrain traffic FoWL receives - for more info, run `man pcap-filter`
   -i, --inject          Use root privileges (raw socket(s)) to inject response traffic
-  -d, --debugging       Maximize log verbosity
+  -v, --debugging       Maximize log verbosity
+  --crash-on-handler-exception
+                        useful for debugging custom handler exceptions raised by an engine
+  --suppress-handler-unhandled
+                        useful for debugging custom handler exceptions raised by an engine
   -l ADDRESS, --bind-address ADDRESS
                         Which source addresses to listen/inject/respond from/on
   -p PORTS, --listen-ports PORTS
