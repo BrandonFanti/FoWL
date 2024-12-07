@@ -9,7 +9,7 @@ ts = datetime.now
 import pdb
 from os import mkdir, geteuid
 from sys import argv as app_args
-from bcolors import bcolors
+from lazy_logger import bcolors
 
 #Network+Scapy stuff
 import socket, sys, time
