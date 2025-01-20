@@ -8,6 +8,8 @@ import inspect
 from traceback import format_exception
 import notify
 
+import re
+
 def import_function_handler(reference:str) -> callable or None:
     """ Get a memory-backed function reference
     
@@ -53,10 +55,11 @@ class rule_token_to_scapy_translation_layer:
         # device.mac == 'D3:4D:B3:3F:D3:4D'
         #  would be 
         # pkt.hasLayer(mac) and (pkt.mac.src == 'D3:4D:B3:3F:D3:4D' or pkt.mac.dst == 'D3:4D:B3:3F:D3:4D')
-        print(f"Translater received token: {token}")
+        print(f"Translator received token: {token}")
+        if token in ['True', 'False']: return (token, (_cls.STATEMENT_NONE, None))
         ctx_evaluable = ''
         if 'device' in token:
-            subtokens = token.split('.')
+            subtokens = [st.strip() for st in token.split('.')]
             print('\t'+str(subtokens))
             if subtokens[-1] == 'mac': 
                 subtokens[-1]='Ether'
@@ -68,15 +71,15 @@ class rule_token_to_scapy_translation_layer:
             return (ctx_evaluable,(_cls.STATEMENT_BIFURCATES, ctx_lookup)) #but also reconverges?
 
         if 'tcp' in token:
-            ctx_evaluable = f"pkt.hasLayer(TCP) and "
+            ctx_evaluable = f"pkt.hasLayer(TCP)"
             subtokens = token.split('.')
             if subtokens[1] in ('syn','ack','rst','fin'):
-                ctx_evaluable += f" pkt[TCP].flags == {subtokens[1][0].upper()} "
+                ctx_evaluable += f" and pkt[TCP].flags == {subtokens[1][0].upper()} "
 
         if token.upper() in ('DHCP',):#Replace with statics: _cls.direct_translations[token.upper()]
-            ctx_evaluable=f"pkt.hasLayer({token.upper()}) "
+            ctx_evaluable=f"pkt.hasLayer({token.upper()})"
 
-        if token[0] == "'" or token[0] == '"':
+        if token != '' and (token[0] == "'" or token[0] == '"'):
             ctx_evaluable=token
 
         return (ctx_evaluable, (_cls.STATEMENT_NONE, None))
@@ -98,11 +101,18 @@ class rule_token_to_scapy_translation_layer:
 
 
 class rule_parser:
-    supported_conditional_separators = (" and ", " or ", " && ", " || ")
-    supported_conditional_comparators = (" == "," != ", " <= ", " >= ", " > ", " < ")
+    supported_conditional_separators = ( "(", " and ", " or ", "&&", "||")
+    supported_conditional_comparators = ("==","!=", "<=", ">=", ">", "<")
 
     def __init__(self, *args, **kwargs):
         pass
+
+    @staticmethod
+    def has_any_seperable(rule):
+        return any([
+            rule_parser.get_splittable_seperator_token(rule),
+            rule_parser.get_splittable_comparator_token(rule)
+        ])
 
     @classmethod 
     def get_splittable_seperator_token(_cls, rule:str):
@@ -112,30 +122,56 @@ class rule_parser:
 
     @classmethod 
     def get_splittable_comparator_token(_cls, rule:str):
+        print(f"Looking for comparator in rule: {rule}")
         for token in _cls.supported_conditional_comparators:
             if token in rule:
                 return token
 
     @classmethod
-    def alienate_seperators(_cls, rule):
+    def alienate_separators(_cls, rule):
         token = _cls.get_splittable_seperator_token(rule)
-        tokenized = rule.split(token)
-        return [tokenized[0], token, tokenized[1]]
+        if token == "(":
+            parenthetical_group_match = re.findall("\(.*\)", rule, flags=re.DOTALL)[0]
+            rules_parenthetically_split = rule.split(parenthetical_group_match)
+            for i,rp in enumerate(rules_parenthetically_split):
+                if rp == '':
+                    rules_parenthetically_split[i] = parenthetical_group_match
+                    print(rules_parenthetically_split)
+                    if i-1 < 0:
+                        print("Alienating next element")
+                        as_ng = _cls.alienate_separators(rules_parenthetically_split[i+1])
+                        print(as_ng[2])
+                        as_ng[2] = as_ng[2]+parenthetical_group_match
+                        print(as_ng)
+                    else:
+                        print("Alienating previous element")
+                        print(_cls.alienate_separators(rules_parenthetically_split[i-1]))
+                        as_ng = _cls.alienate_separators(rules_parenthetically_split[i-1])
+                        print(as_ng[2])
+                        as_ng[2] = as_ng[2]+parenthetical_group_match
+                        print(as_ng)
 
-    @classmethod
-    def alienate_comparators(_cls, rule):
-        token = _cls.get_splittable_comparator_token(rule)
-        tokenized = rule.split(token)
-        if len(tokenized) > 1:
+        if token:
+            tokenized = rule.split(token)
             return [tokenized[0], token, tokenized[1]]
         else: return rule
 
     @classmethod
-    def alienate(_cls, rule, seperators):
+    def alienate_comparators(_cls, rule):
+        token = _cls.get_splittable_comparator_token(rule)
+        if token:
+            tokenized = rule.split(token)
+            if len(tokenized) > 1:
+                return [tokenized[0], token, tokenized[1]]
+            else: return rule
+        else: return rule
+
+    @classmethod
+    def alienate(_cls, rule, separators):
         change = False
         conditionals_split=[rule]
-        if any(condition in rule for condition in seperators):
-            for condition in seperators:
+        if any(condition in rule for condition in separators):
+            for condition in separators:
                 for splitt in conditionals_split:
                     if condition in splitt and condition != splitt:
                         print(f"\tSplitting '{splitt}' with '{condition}'")
@@ -147,7 +183,7 @@ class rule_parser:
         else: return rule
 
         if change: 
-            return [_cls.alienate(subtokens, seperators) for subtokens in conditionals_split] 
+            return [_cls.alienate(subtokens, separators) for subtokens in conditionals_split] 
         return conditionals_split[0]
 
     @classmethod
@@ -234,20 +270,25 @@ class rule:
     def __init__(self, rule_str, rule_embed_depth=0):
         self._raw = rule_str
         self.rule_embed_depth=rule_embed_depth
+        suffix_rule_parenthesis = False
 
-        seperators = rule_parser.supported_conditional_separators
+        separators = rule_parser.supported_conditional_separators
         comparators = rule_parser.supported_conditional_comparators
 
-        # for seperator in seperators:
+        # for seperator in separators:
         #     print(f"'{seperator}' in {rule_str} : {seperator in rule_str}")
 
-        self.rules_by_seperators = rule_parser.alienate_seperators(
+        if not "(" in self._raw and ")" in self._raw:
+            self._raw = self._raw[:-1]
+            suffix_rule_parenthesis = True
+
+        self.rules_by_separators = rule_parser.alienate_separators(
             self._raw
         )
+        self.rules_by_comparators = None
 
-
-        filter_subrules = lambda x: [rule for rule in self.rules_by_seperators if not rule in seperators ]
-        subrules = filter_subrules(self.rules_by_seperators)
+        filter_subrules = lambda x: [rule for rule in self.rules_by_separators if not rule in separators ]
+        subrules = filter_subrules(self.rules_by_separators)
 
         self.filter_subrules = filter_subrules
 
@@ -257,31 +298,73 @@ class rule:
             rules_with_subrules = filter_subrules(subrules)
             print(f"Parsing out subrules in {rules_with_subrules}")
             for i,subrule in enumerate(rules_with_subrules):
-                if any([seperator in subrule for seperator in seperators]):
+                if any([seperator in subrule for seperator in separators]):
                     print(f"Embedding rule instance for {subrule}")
                     subrules[i] = rule(subrule, rule_embed_depth=rule_embed_depth+2)
             self.subrules = subrules
             print(f"Checking if rules has subrules: {self._contains_nested_subrules()}")
 
-        self.rules_by_comparators = [
-            rule_parser.alienate_comparators(rule)
-            for rule in self.rules_by_seperators
-        ]
+        if any([comparator in srule for srule in self.rules_by_separators if srule for comparator in comparators]):
+            self.rules_by_comparators = [
+                rule_parser.alienate_comparators(rule)
+                for rule in self.rules_by_separators
+            ]
 
-        self.root_rule = True if not any([isinstance(e, list) for e in self.rules_by_comparators]) else False
+        self.root_rule = False
+
+        if self.rules_by_comparators:
+            self.root_rule = True if not any([isinstance(e, list) for e in self.rules_by_comparators]) else False
+
+        self.root_subrules = []
+        if not self.root_rule and self.rules_by_comparators:
+            for rrule in self.rules_by_comparators:
+                if isinstance(rrule, list):
+                    r=''.join(rrule)
+                    print(r)
+                    rr = rule(r)
+                    if not rr._contains_nested_subrules() and not rr.contains_nested_subrules:
+                        print(f"Identified a root rule: {r}")
+                        self.root_subrules.append(rr)
 
         self.translated_rules = []
-        for comparator_rule in self.rules_by_comparators:
-            if isinstance(comparator_rule, list):
-                for token in rule_token_to_scapy_translation_layer.interpreable_root_tokens:
-                    for rule_token in comparator_rule:
-                        if token in rule_token:
-                            self.translated_rules.append(
-                                rule_token_to_scapy_translation_layer.translate(rule_token)
-                            )
+
+        seperator_index = 1 #Don't start your rules with "and", "or", "&&", or "||"....
+
+        if self.rules_by_comparators:
+            for comparator_rule in self.rules_by_comparators:
+                if isinstance(comparator_rule, list):
+                    for token in rule_token_to_scapy_translation_layer.interpreable_root_tokens:
+                        for rule_token in comparator_rule:
+                            if token in rule_token and not any([seperator in ''.join(comparator_rule) for seperator in separators]):
+                                print(f"Translating rule token {rule_token} from {comparator_rule}")
+                                self.translated_rules.append(
+                                    rule_token_to_scapy_translation_layer.translate_tokenized_condition(comparator_rule)
+                                )
+                                if seperator_index < len(self.rules_by_separators)-1:
+                                    self.translated_rules.append(self.rules_by_separators[seperator_index])
+                                    seperator_index+=1
+                if not rule_parser.has_any_seperable(comparator_rule):
+                    self.translated_rules.append(
+                        rule_token_to_scapy_translation_layer.translate_tokenized_condition([comparator_rule])
+                    )
+                    if seperator_index < len(self.rules_by_separators)-1:
+                        self.translated_rules.append(self.rules_by_separators[seperator_index])
+                        seperator_index+=1
+
+        for subrule in self.subrules:
+            if isinstance(subrule, rule):
+                for subrule_translated in subrule.translated_rules:
+                    if subrule_translated == "": subrule_translated = "("
+                    self.translated_rules.append(subrule_translated)
+
+        if suffix_rule_parenthesis:
+            self.translated_rules.append(")")
+
+        print(f"~~~~~New Translated Rules: {self.translated_rules}")
+
 
     def contains_nested_subrules(self):
-        return any([isinstance(subrule,rule)  for subrule in self.subrules])
+        return any([isinstance(subrule,rule) for subrule in self.subrules])
 
     def _contains_nested_subrules(self):
         for rule in self.subrules:
@@ -298,7 +381,10 @@ class rule:
     def __str__(self):
 
         translated_rules_str = f"{'    '*(self.rule_embed_depth+3)}" + \
-                f",\n{'    '*(self.rule_embed_depth+3)}".join(str(rule) for rule in self.translated_rules if not isinstance(rule, str))
+                f",\n{'    '*(self.rule_embed_depth+3)}".join(self.translated_rules)
+                #     str(rule.translated) 
+                # for rule in self.translated_rules 
+                #     if not isinstance(rule, str))
 
 
         if self.contains_nested_subrules():
@@ -307,7 +393,7 @@ class rule:
 
             return  f"""{'    '*self.rule_embed_depth}Raw Rule: {self._raw}\n""" + \
                     f"""{'    '*(self.rule_embed_depth+1)}    rule_is_root: {self.root_rule}\n"""+\
-                    f"""{'    '*(self.rule_embed_depth+1)}    seperators  : {self.rules_by_seperators}\n"""+\
+                    f"""{'    '*(self.rule_embed_depth+1)}    separators  : {self.rules_by_separators}\n"""+\
                     f"""{'    '*(self.rule_embed_depth+1)}    comparators : {self.rules_by_comparators}\n"""+\
                     f"""{'    '*(self.rule_embed_depth)}        subrules: [\n"""+\
                         subrule_str + \
@@ -319,7 +405,7 @@ class rule:
         else:
             return  f"""{'    '*self.rule_embed_depth}Raw Rule: {self._raw}\n""" + \
                     f"""{'    '*(self.rule_embed_depth+1)}    rule_is_root: {self.root_rule}\n"""+\
-                    f"""{'    '*(self.rule_embed_depth+1)}    seperators  : {self.rules_by_seperators}\n"""+\
+                    f"""{'    '*(self.rule_embed_depth+1)}    separators  : {self.rules_by_separators}\n"""+\
                     f"""{'    '*(self.rule_embed_depth+1)}    comparators : {self.rules_by_comparators}\n"""+\
                     f"""{'    '*(self.rule_embed_depth+2)}rules_translated: [\n"""+\
                         translated_rules_str + \
