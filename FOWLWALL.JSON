@@ -28,8 +28,9 @@
     },
     "custom_handler":[
         {
-            "name":"default_handler",
-            "description": "Banned host's will receive the 'Hackneyed' server's 'Lame' title page - for any port",
+            "name":"See all TCP",
+            "description": "Send all TCP traffic to sample_custom_handler",
+            "rule": "tcp.syn == any",
             "with": "sample_custom_handler.handle"
         },
         {
@@ -43,7 +44,8 @@
         {
             "name":"Notify device connection",
             "method":"MQTT",
-            "rule": "dhcp and device.mac == 'fe:64:b7:67:66:9C' or (device.mac == 'fe:64:b7:67:66:9D' and dhcp)"
+            "rule": "dhcp and device.mac == 'fe:64:b7:67:66:9C' or (device.mac == 'fe:64:b7:67:66:9D' and dhcp)",
+            "with": "MQTT.dummy"
         }
     ]
 }

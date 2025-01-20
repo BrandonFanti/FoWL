@@ -42,6 +42,8 @@ try:
     from scapy_handler import Unhandled_Scapy_Type
     from iproute_detection import get_interface_info
 
+    from FOWL_WALL_Parser import wall_config_parser, wall_config_rule
+
     #     -----------------------------------------------------------------------------------------------         #
     #  Logging, configuration, pre-checks, sockets defined here
 
@@ -82,6 +84,12 @@ try:
     socks=None
     pcaps=None
     packets=None
+
+    if fowl_args.fowl_firewall_config_path:
+        wall_config = wall_config_parser.parse_file(fowl_args.fowl_firewall_config_path)
+        wall_callbacks = [*wall_config.custom_calls, *wall_config.f2b_callbacks]
+
+
     if fowl_args.file:
         print(fowl_args.file)
         pcaps = iter([rdpcap(f) for f in fowl_args.file])
@@ -132,7 +140,7 @@ try:
 
     #Packet processing (coprocess(es))
     rengine = realtime_engine(app_args=fowl_args, database=rdb)
-    rproc = rengine.start_engine()
+    rproc = rengine.start_engine(callbacks=wall_callbacks)
 
     def interrupt_handler(sig, frame):
         logger.info("CTRL+C detected: Saving and shutting down...")

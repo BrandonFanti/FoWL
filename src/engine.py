@@ -9,6 +9,7 @@ from scapy.all import *
 import inspect
 from uuid import uuid4
 
+from FOWL_WALL_Parser import wall_config_rule
 from lazy_logger.my_logger import Logger_Base
 from scapy_handler import handle, Unhandled_Scapy_Type
 
@@ -113,7 +114,7 @@ class engine(Thread):
 
 class realtime_engine(engine):
     def __init__(self, *args, **kwargs):
-        self.callbacks=None
+        self.callbacks= kwargs.pop('callbacks', None)
         self.database = kwargs.pop('database', None)
         super().__init__(*args, logger_name='realtime_engine', **kwargs)
         pass
@@ -129,6 +130,9 @@ class realtime_engine(engine):
         else:
             self.iq, self.oq, self.eq = (kwargs['iq'], kwargs['oq'], kwargs['eq'])
 
+        for callback in kwargs.get('callbacks', []):
+            if isinstance(callback, wall_config_rule):
+                self.logger.info(f"Engine to register rule: {callback.name}")
 
         try:
             return Thread(target=self.run, args=(self.iq, self.oq, self.eq, args), kwargs=kwargs).start()
@@ -142,7 +146,7 @@ class realtime_engine(engine):
         if call and conditions:
             self.callbacks.append(call, conditions)
 
-    def run(self, iq, oq, eq, *args, logger=None, callback=None, **kwargs):
+    def run(self, iq, oq, eq, *args, logger=None, callbacks=None, **kwargs):
         iq_cntr = 0
         in_o = None
         exit_notify = engine_exit_notify(
@@ -171,8 +175,12 @@ class realtime_engine(engine):
 
 
                 try:
-                    if callback:
-                        callback(in_o, *args, database=self.database, **kwargs)
+                    if callbacks:
+                        for cb in callbacks:
+                            if isinstance(cb, wall_config_rule):
+                                if cb.check_conditions(in_o, database_cli=self.database):
+                                    cb.call(*in_o, rule=cb)
+                        #callbacks(in_o, *args, database=self.database, **kwargs)
                         continue
 
                     handle(in_o, *args, logger=self.logger, database=self.database, **kwargs)

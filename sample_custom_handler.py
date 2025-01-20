@@ -5,10 +5,11 @@ name = "my_custom_handler"
 log_file=f"log/{name}.log"
 logger=Logger_Base(name=name, file_path=log_file)
 logger.info("logger started")
-
+logger.enable_debug()
+logger.set_level(logger.INFO)
 
 #from default scapy_handlers -> Hackneyed response
-def handle(timestamp, src_socket, pkt):
+def handle(timestamp, src_socket, pkt, **kwargs):
     logger.debug("my_custom_handler called!")
     logger.debug(timestamp)
     logger.debug(src_socket)
