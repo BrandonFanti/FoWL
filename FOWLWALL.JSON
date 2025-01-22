@@ -3,12 +3,12 @@
         "ban":[
             {
                 "name": "Block hosts who touch port 22",
-                "rule": "tcp.syn and dst.port==22",
+                "rule": "tcp.syn and net.dst.port==22",
                 "period": "forever"
             },
             {
                 "name": "Block hosts who touch port 80",
-                "rule": "tcp.syn and dst.port==80",
+                "rule": "tcp.syn and net.dst.port==80",
                 "period": "forever"
             }
         ]

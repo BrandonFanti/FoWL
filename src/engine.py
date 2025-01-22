@@ -133,7 +133,7 @@ class realtime_engine(engine):
         for callback in kwargs.get('callbacks', []):
             if isinstance(callback, wall_config_rule):
                 self.logger.info(f"Engine to register rule: {callback.name}")
-
+                self.logger.debug(f"The rule: {callback._raw}")
         try:
             return Thread(target=self.run, args=(self.iq, self.oq, self.eq, args), kwargs=kwargs).start()
         except:

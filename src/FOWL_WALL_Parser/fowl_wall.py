@@ -13,7 +13,7 @@ import re
 from lazy_logger.my_logger import Logger_Base
 logger_name = "FOWL_WALL_RULE"
 logger=Logger_Base(name=logger_name, log_level=20) #level 20 is info
-# logger.enable_debug()
+logger.enable_debug()
 
 from scapy.all import TCP, DHCP, IP
 
@@ -52,9 +52,10 @@ class rule_token_to_db_lookup:
 
 
 class rule_token_to_scapy_translation_layer:
-    interpreable_root_tokens = ['device', 'tcp', 'dhcp']
+    interpreable_root_tokens = ['device', 'tcp', 'dhcp', 'net']
     STATEMENT_NONE=0
     STATEMENT_BIFURCATES=1
+    STATEMENT_CONVERGE=2
     direct_translations={
 
     }
@@ -72,7 +73,9 @@ class rule_token_to_scapy_translation_layer:
         # pkt.hasLayer(mac) and (pkt.mac.src == 'D3:4D:B3:3F:D3:4D' or pkt.mac.dst == 'D3:4D:B3:3F:D3:4D')
         #print(f"Translator received token: {token}")
         if token in ['True', 'False']: return (token, (_cls.STATEMENT_NONE, None))
+
         ctx_evaluable = ''
+
         if 'device' in token:
             subtokens = [st.strip() for st in token.split('.')]
             #print('\t'+str(subtokens))
@@ -84,6 +87,25 @@ class rule_token_to_scapy_translation_layer:
                 ctx_lookup = ('[IP].src','[IP].dst')
             ctx_evaluable=f"pkt.haslayer({subtokens[-1]})"
             return (ctx_evaluable,(_cls.STATEMENT_BIFURCATES, ctx_lookup)) #but also reconverges?
+
+        if 'net.' in token:
+            subtokens = [st.strip() for st in token.split('.')]
+            logger.colorize(f"Processing token: {token}, with subtokens {subtokens}", color="RED")
+            core_rule_part = ''
+
+            ctx_evaluable = f"pkt.haslayer(TCP) or pkt.haslayer(UDP)"
+            if len(subtokens) > 1:
+                ctx_lookup = ('.sport','.dport')
+
+            if subtokens[1] == 'port':
+                ctx_evaluable += f" "
+            elif subtokens[1] == 'dst':
+                ctx_evaluable += f" "
+            elif subtokens[1] == 'src':
+                ctx_evaluable += f" "
+
+            return (ctx_evaluable,(_cls.STATEMENT_CONVERGE, ctx_lookup)) 
+
 
         if 'tcp' in token:
             ctx_evaluable = f"pkt.haslayer(TCP)"
@@ -109,6 +131,12 @@ class rule_token_to_scapy_translation_layer:
             ctx_lookup, ctx_lookup_alt = ctx_lookup
             new_condition += f" and (pkt{ctx_lookup} {condition[1]} {condition[2]}"
             new_condition += f" or pkt{ctx_lookup_alt} {condition[1]} {condition[2]})"
+
+        if _cls.STATEMENT_CONVERGE in other:
+            _, ctx_lookup = other
+            ctx_lookup, ctx_lookup_alt = ctx_lookup
+            new_condition += f" and (pkt{ctx_lookup} {condition[1]} {condition[2]}"
+            new_condition += f" and pkt{ctx_lookup_alt} {condition[1]} {condition[2]})"
 
         #print(f"translate_condition(): returning new condition : {new_condition}")
 
@@ -360,7 +388,7 @@ class rule:
                     for token in rule_token_to_scapy_translation_layer.interpreable_root_tokens:
                         for rule_token in comparator_rule:
                             if token in rule_token and not any([seperator in ''.join(comparator_rule) for seperator in separators]):
-                                #print(f"Translating rule token {rule_token} from {comparator_rule}")
+                                logger.debug(f"Translating rule token {rule_token} from {comparator_rule}")
                                 translated_rule = rule_token_to_scapy_translation_layer.translate_tokenized_condition(comparator_rule)
                                 logger.debug(f"Adding {translated_rule}")
                                 self.translated_rules.append(
@@ -422,17 +450,26 @@ class rule:
         logger.debug(f"and db_cli: {database_cli}")
         db_checks = []
         pkt_checks = []
-        for pkt_rule in self.packet_conditions:
-            logger.debug(f"evaluating {pkt_rule}")
-            pkt_checks.append(eval(pkt_rule))
+        for condition in self.packet_conditions:
+            if condition == '': 
+                logger.debug(f"Skipping condition {condition} of {self}")
+                continue
+            try:
+                logger.debug(f"evaluating {condition}")
+                pkt_checks.append(eval(condition))
+            except:
+                logger.exception(f"Exception evaluating condition '{self}'")
+                return False
 
         for condition in self.database_conditions:
+            if condition == '': continue
             logger.debug(f"evaluating {condition}")
             try:
                 db_checks.append(database_cli.get(condition))
             except:
                 logger.debug(f"database key was probably not found... ")
                 return False
+
         logger.debug(f"All rules passed: {all([*db_checks,*pkt_checks])}")
         return all([*db_checks,*pkt_checks])
 
