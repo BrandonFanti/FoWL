@@ -84,6 +84,8 @@ try:
     socks=None
     pcaps=None
     packets=None
+    wall_config = None
+    wall_callbacks = None
 
     if fowl_args.fowl_firewall_config_path:
         wall_config = wall_config_parser.parse_file(fowl_args.fowl_firewall_config_path)
@@ -137,6 +139,15 @@ try:
     start=ts()
     min_log_main = start+timedelta(seconds=60) #A minimum log interval, so if there's no packets, we know its running
     logger.info("Starting packet capture")
+    logger.debug(f"Skipping all in whitelist: ")
+    if wall_config._whitelist:
+        logger.colorize("~~~~~~~~~~~~WHITELIST~~~~~~~~~~", color="RED")
+        for i in wall_config._whitelist:
+            logger.info(f"    {i}")
+    else: 
+        logger.colorize("*"*20+"NO WHITELIST"+"*"*20, color="RED")
+        logger.colorize("*"*20+"NO WHITELIST"+"*"*20, color="RED")
+        logger.colorize("*"*20+"NO WHITELIST"+"*"*20, color="RED")
 
     #Packet processing (coprocess(es))
     rengine = realtime_engine(app_args=fowl_args, database=rdb)
@@ -180,6 +191,8 @@ try:
                     p = get_packet()
                 else:
                     p = (ts(), None, next(packets))
+
+                if p and wall_config and wall_config.skippable(p): continue
                 if min_log_main < ts():
                     min_log_main = ts()+timedelta(seconds=60)
                     print(f"Packet polling loop is still running, \" last packet\": {p}")

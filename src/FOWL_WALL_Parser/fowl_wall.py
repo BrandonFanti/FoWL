@@ -9,13 +9,17 @@ from traceback import format_exception
 import notify
 
 import re
+from datetime import datetime, timedelta
+ts = datetime.now
 
 from lazy_logger.my_logger import Logger_Base
-logger_name = "FOWL_WALL_RULE"
-logger=Logger_Base(name=logger_name, log_level=20) #level 20 is info
-logger.enable_debug()
+name = "FOWL_WALL_RULE"
+log_file=f"log/{name}-Sess-{ts()}.log"
+logger=Logger_Base(name=name, file_path=log_file, log_level=20) #level 20 is info
 
-from scapy.all import TCP, DHCP, IP
+# logger.enable_debug()
+
+from scapy.all import TCP, DHCP, IP, UDP
 
 def import_function_handler(reference:str) -> callable or None:
     """ Get a memory-backed function reference
@@ -56,6 +60,8 @@ class rule_token_to_scapy_translation_layer:
     STATEMENT_NONE=0
     STATEMENT_BIFURCATES=1
     STATEMENT_CONVERGE=2
+    STATEMENT_ARG_0=3
+    STATEMENT_ARG_1=4
     direct_translations={
 
     }
@@ -90,21 +96,18 @@ class rule_token_to_scapy_translation_layer:
 
         if 'net.' in token:
             subtokens = [st.strip() for st in token.split('.')]
-            logger.colorize(f"Processing token: {token}, with subtokens {subtokens}", color="RED")
+            logger.debug(f"Processing token: {token}, with subtokens {subtokens}", color="RED")
             core_rule_part = ''
 
             ctx_evaluable = f"pkt.haslayer(TCP) or pkt.haslayer(UDP)"
-            if len(subtokens) > 1:
-                ctx_lookup = ('.sport','.dport')
+            ctx_lookup = ('.sport','.dport')
 
             if subtokens[1] == 'port':
-                ctx_evaluable += f" "
-            elif subtokens[1] == 'dst':
-                ctx_evaluable += f" "
+                return (ctx_evaluable,(_cls.STATEMENT_CONVERGE, ctx_lookup)) 
             elif subtokens[1] == 'src':
-                ctx_evaluable += f" "
-
-            return (ctx_evaluable,(_cls.STATEMENT_CONVERGE, ctx_lookup)) 
+                return (ctx_evaluable,(_cls.STATEMENT_ARG_0, ctx_lookup)) 
+            elif subtokens[1] == 'dst':
+                return (ctx_evaluable,(_cls.STATEMENT_ARG_1, ctx_lookup)) 
 
 
         if 'tcp' in token:
@@ -137,6 +140,17 @@ class rule_token_to_scapy_translation_layer:
             ctx_lookup, ctx_lookup_alt = ctx_lookup
             new_condition += f" and (pkt{ctx_lookup} {condition[1]} {condition[2]}"
             new_condition += f" and pkt{ctx_lookup_alt} {condition[1]} {condition[2]})"
+
+        if _cls.STATEMENT_ARG_0 in other:
+            _, ctx_lookup = other
+            ctx_lookup, _ = ctx_lookup
+            new_condition += f" and pkt{ctx_lookup} {condition[1]} {condition[2]}"
+        if _cls.STATEMENT_ARG_1 in other:
+            _, ctx_lookup = other
+            _, ctx_lookup_alt = ctx_lookup
+            new_condition += f" and pkt{ctx_lookup_alt} {condition[1]} {condition[2]}"
+
+
 
         #print(f"translate_condition(): returning new condition : {new_condition}")
 
@@ -528,15 +542,24 @@ class rule:
 
 
 class config_cls:
-    config_keys = ['f2b', 'knock', 'custom_handler', 'notify']
+    config_keys = ['f2b', 'knock', 'custom_handler', 'notify', 'whitelist']
     
     def __init__(self):
+        self._whitelist = []
         self._fail2ban = None
         self._knock_daemon = None
         self._custom_handlers = None
         self._notify_methods = None
 
+    def skippable(self, pkt:tuple):
+        ts, sock, pkt = pkt
+        if pkt.haslayer(IP):
+            return pkt['IP'].src in self._whitelist
+        return False
+
     def set_key(self, key, value):
+        if key == 'whitelist': self._whitelist = value
+        if key == 'blacklist': self._whitelist = value
         if key == 'f2b':
             self.set_fail2ban(value)
         if key == 'knock':
@@ -548,7 +571,8 @@ class config_cls:
 
     def action_ban(self, ts, sock, pkt, rule=None):
         if pkt.haslayer(IP):
-            logger.colorize(f"Banning host {pkt[IP].src}: violation of rule: {rule}", color="Red")
+            logger.colorize(f"Banning host {pkt[IP].src}: violation of rule: {rule._raw}", color="Red")
+            logger.debug(f"{rule}")
         else:
             logger.colorize(f"Conditions matched but no IP? (for pkt:\n {pkt})")
 
