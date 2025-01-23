@@ -61,6 +61,41 @@ Thanks for checking out my project.
 <details>
 <summary> 
 
+# To install
+</summary>
+<ol>
+  <li> Create+activate your virtual environment- I use virtualenv, so e.g. </li> 
+    <ol>
+        <li> `python3.11 -m venv FOWL_venv` 
+        <li> `. FOWL_venv/bin/activate`
+    </ol>
+  </li>
+  <li> (`cd $project_path`) and install the requirements with `pip install -r requirements.txt` </li>
+  <li> If using firewall functions:
+  <ol>
+    <li> Install iptables (consort with systems wizard, RedHat wants `yum install iptables-services`, Debian `apt install iptables`)
+    <li> Customize FOWLWALL.JSON, or write your own and pass it to fowl with `--fowl-wall-config $FILE`
+  </ol>
+  <li> (Presently requires!) Run as root, you may need to `sudo su`, reactivate your env, and then run `python FOWL.py` 
+</ul>
+</details>
+
+
+<details>
+<summary> 
+
+# Dev/Contribution notes
+</summary>
+This project should work on any linux box capable of running python3.11, the listed requirements, and iptables - do not break compatibility.
+
+If you have an issue, include a log, or better - pcap - to reproduce it.
+
+
+</details>
+
+<details>
+<summary> 
+
 # Q & A 
 
 </summary>
@@ -179,7 +214,7 @@ Really, all teams should have awareness of all tools - to prepare for the opposi
     - Streamline service emulation implementations
         - capture PCAPs/Pickles
         - auto analysis ~~~ magics ~~~
-        - detect/emulate server responses?
+        - detect/emulate server responses
     - Implement stateful monitoring of connections (TCP - SEQ/ACK tracking, DNS request/response pairs, etc)
     - root-less packet capture (Blue Team knocker daemon could use regular sockets, and if wireshark group is configured - Red Team gets Recon)
 - Blue Team:
