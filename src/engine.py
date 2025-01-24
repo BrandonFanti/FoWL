@@ -131,9 +131,10 @@ class realtime_engine(engine):
             self.iq, self.oq, self.eq = (kwargs['iq'], kwargs['oq'], kwargs['eq'])
 
         for callback in kwargs.get('callbacks', []):
-            if isinstance(callback, wall_config_rule):
+            if isinstance(callback, wall_config_rule) and callback._translated_rule != '':
                 self.logger.info(f"Engine to register rule: {callback.name}")
                 self.logger.debug(f"The rule: {callback._raw}")
+                self.logger.debug(f"The rule (translated): {callback._translated_rule}")
         try:
             return Thread(target=self.run, args=(self.iq, self.oq, self.eq, args), kwargs=kwargs).start()
         except:
@@ -162,6 +163,7 @@ class realtime_engine(engine):
 
 
         try:
+            self.logger.colorize(f"~~~PRIMED~~~",color="GREEN")
             while not isinstance(in_o, engine_exit):
                 try:
                     in_o = iq.get_nowait()
@@ -176,10 +178,16 @@ class realtime_engine(engine):
 
                 try:
                     if callbacks:
-                        for cb in callbacks:
+                        for i,cb in enumerate(callbacks):
                             if isinstance(cb, wall_config_rule):
-                                if cb.check_conditions(in_o, database_cli=self.database):
-                                    cb.call(*in_o, rule=cb)
+                                # self.logger.debug(f"Checking callback rule {cb.name}({i+1} of {len(callbacks)})")
+                                try:
+                                    if cb._translated_rule == '': self.logger.warn(f"callback has no rule? {cb.name}")
+                                    if cb.check_conditions(in_o, database_cli=self.database):
+                                            cb.call(*in_o, rule=cb)
+                                except Exception as e:
+                                    # self.eq.put(e) #TODO: Reconsider?
+                                    continue
                         #callbacks(in_o, *args, database=self.database, **kwargs)
                         continue
 

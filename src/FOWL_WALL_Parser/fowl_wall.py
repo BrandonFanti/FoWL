@@ -8,6 +8,8 @@ import inspect
 from traceback import format_exception
 import notify
 
+from netfilter_manager import netfilter_manager
+
 import re
 from datetime import datetime, timedelta
 ts = datetime.now
@@ -52,7 +54,7 @@ class rule_token_to_db_lookup:
 
     def translate(token):
         if 'banned' in token:
-            return token
+            return f"database_cli.get('{token}')"
 
 
 class rule_token_to_scapy_translation_layer:
@@ -96,10 +98,10 @@ class rule_token_to_scapy_translation_layer:
 
         if 'net.' in token:
             subtokens = [st.strip() for st in token.split('.')]
-            logger.debug(f"Processing token: {token}, with subtokens {subtokens}", color="RED")
+            logger.debug(f"Processing token: {token}, with subtokens {subtokens}")
             core_rule_part = ''
 
-            ctx_evaluable = f"pkt.haslayer(TCP) or pkt.haslayer(UDP)"
+            ctx_evaluable = f"(pkt.haslayer(TCP) or pkt.haslayer(UDP))"
             ctx_lookup = ('.sport','.dport')
 
             if subtokens[1] == 'port':
@@ -451,41 +453,17 @@ class rule:
 
         #print(f"~~~~~New Translated Rules: {self.translated_rules}")
 
+        self._translated_rule = ''.join(self.translated_rules)
+
+
     def call(self, *args, **kwargs):
         self.action(*args, **kwargs)
 
     def check_conditions(self, engine_pkt_tuple, database_cli=None):
-        rules = ''.join(self.translated_rules)
         ts, sock, pkt = engine_pkt_tuple
-        # logger.info(f"Checking rules: {rules}")
-        logger.debug(f"AKA database conditions: {self.database_conditions}")
-        logger.debug(f"AKA packet conditions: {self.packet_conditions}")
-        logger.debug(f"Using  pkt: {pkt}")
-        logger.debug(f"and db_cli: {database_cli}")
-        db_checks = []
-        pkt_checks = []
-        for condition in self.packet_conditions:
-            if condition == '': 
-                logger.debug(f"Skipping condition {condition} of {self}")
-                continue
-            try:
-                logger.debug(f"evaluating {condition}")
-                pkt_checks.append(eval(condition))
-            except:
-                logger.exception(f"Exception evaluating condition '{self}'")
-                return False
+        condition_result = eval(self._translated_rule)
+        return condition_result
 
-        for condition in self.database_conditions:
-            if condition == '': continue
-            logger.debug(f"evaluating {condition}")
-            try:
-                db_checks.append(database_cli.get(condition))
-            except:
-                logger.debug(f"database key was probably not found... ")
-                return False
-
-        logger.debug(f"All rules passed: {all([*db_checks,*pkt_checks])}")
-        return all([*db_checks,*pkt_checks])
 
 
 
@@ -550,6 +528,8 @@ class config_cls:
         self._knock_daemon = None
         self._custom_handlers = None
         self._notify_methods = None
+        self.nftm = netfilter_manager()
+        self.enacted_ban_rule_ids = []
 
     def skippable(self, pkt:tuple):
         ts, sock, pkt = pkt
@@ -573,18 +553,23 @@ class config_cls:
         if pkt.haslayer(IP):
             logger.colorize(f"Banning host {pkt[IP].src}: violation of rule: {rule._raw}", color="Red")
             logger.debug(f"{rule}")
+            logger.debug(f"Packet  was {pkt}")
+            khd = self.nftm.ignore(pkt[IP].src)
+            self.enacted_ban_rule_ids.append(khd)
         else:
             logger.colorize(f"Conditions matched but no IP? (for pkt:\n {pkt})")
 
+    def restore_prelaunch_nftables_state(self):
+        self.nftm.flush_rules()
 
     def set_fail2ban(self, x):
         self._fail2ban = x
-        print(f"Parsing config bannable offenses")
+        logger.info(f"Parsing config bannable offenses")
         self.f2b_callbacks = []
         for i,entry in enumerate(x['ban']):
-            print(f"    Parsing F2B Rule {i}, parsing rule name: {entry['name']}")
+            logger.info(f"    Parsing F2B Rule {i}, parsing rule name: {entry['name']}")
             r = rule(entry['rule'], name=entry['name'], action=self.action_ban)
-            print(r)
+            #print(r)
             self.f2b_callbacks.append(r)
             # f2b_conditions.append(
             #     rule_parser.parse(entry['rule'])
@@ -597,10 +582,10 @@ class config_cls:
     def set_knock_daemon(self, x):
         self._knock_daemon = x
 
-        print(f"Parsing config for knockd")
+        logger.info(f"Parsing config for knockd")
         self.knock_calls = []
         for i,entry in enumerate(x['unlock_sequences']):
-            print(f"    Parsing knockd Rule {i}, parsing rule name: {entry['name']}")
+            logger.info(f"    Parsing knockd Rule {i}, parsing rule name: {entry['name']}")
             try:
                 if 'action' in entry.keys():
                     function = import_function_handler(entry['action'])
@@ -616,16 +601,16 @@ class config_cls:
     def set_custom_handlers(self, x):
         self._custom_handlers = x
 
-        print(f"Parsing config for injectable-traffic/handlers")
+        logger.info(f"Parsing config for injectable-traffic/handlers")
         self.custom_calls = []
         for i,entry in enumerate(x):
-            print(f"    Parsing respond Rule {i}, parsing rule name: {entry['name']}")
+            logger.info(f"    Parsing respond Rule {i}, parsing rule name: {entry['name']}")
             try:
                 function = import_function_handler(entry['with'])
                 if function:
                     #print(rule(entry['rule'])) if 'rule' in entry.keys() else lambda x: True
                     self.custom_calls.append(
-                        rule(entry['rule'], action=function) if 'rule' in entry.keys() else lambda x: True
+                        rule(entry['rule'], name=entry['name'], action=function) if 'rule' in entry.keys() else lambda x: True
                     )
                     continue
                 #print(f"Failed to identify module `{module}`")
@@ -637,7 +622,7 @@ class config_cls:
     def set_notify_methods(self, x):
         self._notify_methods = x
 
-        print(f"Parsing config methods to notify")
+        logger.info(f"Parsing config methods to notify")
         self.notify_calls=[]
         for i, entry in enumerate(x):
             # if entry['method'] in _cls._native_notify_methods.keys():

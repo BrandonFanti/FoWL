@@ -9,8 +9,6 @@
 
 > The term seeks to capture the uncertainty regarding one's own capability, adversary capability, and adversary intent during an engagement, operation, or campaign. 
 
-> "The quieter you become, the more you are able to hear"
-
 
 ## UI Sample:
 <img src=src/visualization/assets/sample.png alt="sample.png">
@@ -73,7 +71,10 @@ Thanks for checking out my project.
   <li> (`cd $project_path`) and install the requirements with `pip install -r requirements.txt` </li>
   <li> If using firewall functions:
   <ol>
-    <li> Install iptables (consort with systems wizard, RedHat wants `yum install iptables-services`, Debian `apt install iptables`)
+    <li> Install iptables, nftables, and python3-nftables (consort with systems wizard, RedHat wants `yum install iptables-services python3-nftables`, Ubuntu/Debian `apt install iptables python3-nftables`)
+    <ol>
+        <li> You'll also want to copy that `python3-nftables` from your system installed instance of python3, to your venv </li>
+    </ol>
     <li> Customize FOWLWALL.JSON, or write your own and pass it to fowl with `--fowl-wall-config $FILE`
   </ol>
   <li> (Presently requires!) Run as root, you may need to `sudo su`, reactivate your env, and then run `python FOWL.py` 

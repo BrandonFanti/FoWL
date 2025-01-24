@@ -68,6 +68,12 @@ try:
 
     rengine = None
     rdb = None
+    socks=None
+    pcaps=None
+    packets=None
+    wall_config = None
+    wall_callbacks = None
+
     def safe_exit(stop_rengine=True, reason=None):
         if rengine and stop_rengine:
             rengine.stop(
@@ -79,13 +85,9 @@ try:
             for sock in socks:
                 sock.close()
         if rdb: rdb.save(force=True)
+        wall_config.restore_prelaunch_nftables_state()
         sys.exit(0)
 
-    socks=None
-    pcaps=None
-    packets=None
-    wall_config = None
-    wall_callbacks = None
 
     if fowl_args.fowl_firewall_config_path:
         wall_config = wall_config_parser.parse_file(fowl_args.fowl_firewall_config_path)
@@ -144,6 +146,7 @@ try:
         logger.colorize("~~~~~~~~~~~~WHITELIST~~~~~~~~~~", color="RED")
         for i in wall_config._whitelist:
             logger.info(f"    {i}")
+            # logger.info(f"    REDACTED")
     else: 
         logger.colorize("*"*20+"NO WHITELIST"+"*"*20, color="RED")
         logger.colorize("*"*20+"NO WHITELIST"+"*"*20, color="RED")

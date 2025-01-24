@@ -10,6 +10,11 @@
                 "name": "Block hosts who touch port 80",
                 "rule": "tcp.syn and net.dst.port==80",
                 "period": "forever"
+            },
+            {
+                "name": "Block hosts who touch port 443",
+                "rule": "tcp.syn and net.dst.port==443",
+                "period": "forever"
             }
         ]
     },
@@ -47,5 +52,10 @@
             "rule": "dhcp and device.mac == 'fe:64:b7:67:66:9C' or (device.mac == 'fe:64:b7:67:66:9D' and dhcp)",
             "with": "MQTT.dummy"
         }
+    ],
+    "whitelist":[
+    ],
+    "blacklist":[
+
     ]
 }
