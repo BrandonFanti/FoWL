@@ -75,6 +75,7 @@ try:
     wall_callbacks = None
 
     def safe_exit(stop_rengine=True, reason=None):
+        wall_config.tear_down()
         if rengine and stop_rengine:
             rengine.stop(
                 engine_exit(
@@ -85,7 +86,6 @@ try:
             for sock in socks:
                 sock.close()
         if rdb: rdb.save(force=True)
-        wall_config.restore_prelaunch_nftables_state()
         sys.exit(0)
 
 
@@ -107,14 +107,13 @@ try:
         logger.info(" > Setting up socket(s)")
         interfaces = get_interface_info(debug=fowl_args.debugging)
 
-
         conf.use_pcap = True    #packet engine, from one of those stupid `from scapy import *`  
         socks = []
         try:
-            for i in interfaces.keys():
-                logger.debug(f"Listening to interface {i}")
-                socks.append(supersocket.L2ListenTcpdump(i, '-l', filter=fowl_args.pcap_filter))
-            # socks.append(supersocket.L3RawSocket(promisc=True))
+            # for i in interfaces.keys():
+            #     logger.debug(f"Listening to interface {i}")
+            #     socks.append(supersocket.L2ListenTcpdump(i, '-l', filter=fowl_args.pcap_filter))
+            socks.append(supersocket.L3RawSocket(promisc=True))
         except Exception as e:
             #TODO: Implement dumpcap for wireshark group users? -
             # scapy doesn't support this directly, but something like
