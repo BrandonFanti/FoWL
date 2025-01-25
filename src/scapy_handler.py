@@ -242,29 +242,29 @@ def handle_udp(packet, db=None) -> None:
     logger.debug("handle_udp: unhandled UDP type...")
     logger.debug(spkt)
     logger.debug(spkt.show(dump=True))
-    raise Unhandled_Scapy_Type(f"Unhandled UDP(->{spkt.sport}->{spkt.dport})", packet, None)
 
+    raise Unhandled_Scapy_Type(f"Unhandled UDP(->{spkt.sport}->{spkt.dport})", packet, None)
 
 def handle_http(packet):
     timestamp, sock, spkt = packet
     logger.debug("handle_http")
 
-    response = IP(src=spkt.dst, dst=spkt.src)\
+    response = IP(src=spkt[IP].dst, dst=spkt[IP].src)\
     / TCP(
         sport=spkt.dport, dport=spkt.sport, flags="A",
         seq=1, ack=spkt.seq+1,
     )
-    sock.send(response)
+    send(response)
 
 
-    response = IP(src=spkt.dst, dst=spkt.src)\
+    response = IP(src=spkt[IP].dst, dst=spkt[IP].src)\
             / TCP(
                 sport=spkt.dport, dport=spkt.sport, flags="PAF",
                 seq=1, ack=spkt.seq+1,
             )
     response = response / HTTP() / HTTPResponse(Server="Hackneyed") / "<html><Title>Lame</Title>Hi</html>"
     logger.debug(f"Forged HTTP response packet: {response.show2(dump=True)}")
-    sock.send(response)
+    send(response)
     return
 
 def handle_tcp(packet, db=None) -> None:
@@ -283,7 +283,7 @@ def handle_tcp(packet, db=None) -> None:
         db.add_to_key(f"host.{khost_dst}.active_tcp_connection", f"({host_src}, {spkt.sport})")
         #db.save()
 
-    if not any(i in spkt['TCP'].flags for i in ['S', 'R']): return
+    # if not any(i in spkt['TCP'].flags for i in ['S', 'R']): return
 
     # Record new connection being established
     if all(i in spkt['TCP'].flags for i in ['S', 'A']): 
@@ -308,17 +308,17 @@ def handle_tcp(packet, db=None) -> None:
 
         if spkt['TCP'].flags == "S" and \
         not spkt.haslayer(HTTPResponse):
-            logger.debug(f"Spoofing response for this: {spkt.show(dump=True)}")
+            logger.debug(f"Spoofing response for this: ({ts()-timestamp} late) {spkt.show(dump=True)}")
 
             try:
-                logger.debug(f"Spoofing response from {spkt.dst} to {spkt.src}")
+                logger.debug(f"Spoofing response from {spkt[IP].dst} to {spkt[IP].src}")
                 if spkt.haslayer('Raw'):
                     plen = len(spkt['Raw'].load) 
                 else: plen = 0
                 logger.debug(plen)
 
 
-                response = IP(src=spkt.dst, dst=spkt.src)\
+                response = IP(src=spkt[IP].dst, dst=spkt[IP].src)\
                     / TCP(
                             sport=spkt.dport, dport=spkt.sport, flags="SA",
                             seq=0, ack=spkt.seq+1,
@@ -328,17 +328,17 @@ def handle_tcp(packet, db=None) -> None:
                 raise Unhandled_Scapy_Type("Unhandled TCP - response could not be generated", packet, None)
 
             logger.debug(f"Spoofing response: {response.show2(dump=True)}")
-            sock.send(
-                response
-            )
+            send(response)
         return
 
     if spkt['TCP'].flags == "FA":
-        response = IP(src=spkt.dst, dst=spkt.src)\
+        response = IP(src=spkt[IP].dst, dst=spkt[IP].src)\
             / TCP(
                     sport=spkt.dport, dport=spkt.sport, flags="A",
                     seq=0, ack=spkt.seq+1,
                 )
+
+        send(response)
 
         return
 
@@ -431,7 +431,6 @@ def handle_ip(packet, db=None, logger=None) -> None:
 
 
 def handle(pkt, *args, logger=None, **kwargs):
-    return
     timestamp, sock, spkt = pkt
 
     if 'database' in kwargs: database = kwargs.pop('database', None)
@@ -466,17 +465,18 @@ def handle(pkt, *args, logger=None, **kwargs):
                 f.write(pickle.dumps(pkt))
             return True
 
-        #Undefined handling
-        # if not IP in spkt \
-        #     and not IPv6 in spkt\
-        #     and not ARP in spkt:
-        #     if logger:
-        #         logger.debug(f"Name: {spkt.name}")
-        #         logger.debug(f"layers: {spkt.layers}")
-        #         logger.debug(f"aliases: {spkt.aliastypes}")
-        #         logger.debug(f"What is this? {spkt}")
-        #         logger.debug(spkt.show(dump=True))
-        #         wut(spkt)
+        # Undefined handling
+        if not IP in spkt \
+            and not IPv6 in spkt\
+            and not ARP in spkt:
+            # if logger:
+            #     logger.debug(f"Name: {spkt.name}")
+            #     logger.debug(f"layers: {spkt.layers}")
+            #     logger.debug(f"aliases: {spkt.aliastypes}")
+            #     logger.debug(f"What is this? {spkt}")
+            #     logger.debug(spkt.show(dump=True))
+            #     wut(spkt)
+            pass
     except Exception as e:
         e.trace = "".join(format_exception(type(e), e, e.__traceback__))
         raise e
