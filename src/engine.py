@@ -26,6 +26,9 @@ class EngineException(Exception):
     def __init__(self, message):
         super().__init__(message)
 
+#... In the libs, I here-find familiarity
+#https://github.com/svinota/pyroute2/blob/master/pyroute2/netlink/nlsocket.py
+
 class engine(Thread):
     def __init__(self, *args, **kwargs):
         self.kwargs = kwargs
@@ -188,9 +191,8 @@ class realtime_engine(engine):
                                 except Exception as e:
                                     # self.eq.put(e) #TODO: Reconsider?
                                     continue
-                        #callbacks(in_o, *args, database=self.database, **kwargs)
-                        continue
-
+                        # callbacks(in_o, *args, logger=self.logger, database=self.database, **kwargs)
+                        # continue
                     handle(in_o, *args, logger=self.logger, database=self.database, **kwargs)
                 except Exception as e:
                     #If we should *not* report this:
