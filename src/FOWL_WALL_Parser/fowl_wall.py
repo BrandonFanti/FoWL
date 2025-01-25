@@ -537,6 +537,10 @@ class config_cls:
             return pkt['IP'].src in self._whitelist
         return False
 
+    def tear_down(self):
+        self.restore_prelaunch_nftables_state()
+        self.nftm.tear_down()
+
     def set_key(self, key, value):
         if key == 'whitelist': self._whitelist = value
         if key == 'blacklist': self._whitelist = value
@@ -551,10 +555,10 @@ class config_cls:
 
     def action_ban(self, ts, sock, pkt, rule=None):
         if pkt.haslayer(IP):
-            logger.colorize(f"Banning host {pkt[IP].src}: violation of rule: {rule._raw}", color="Red")
+            logger.colorize(f"Banning host {pkt[IP].src} to FoWLands: violation of rule: {rule._raw}", color="Red")
             logger.debug(f"{rule}")
-            logger.debug(f"Packet  was {pkt}")
-            khd = self.nftm.ignore(pkt[IP].src)
+            logger.debug(f"Packet was {pkt}")
+            khd = self.nftm.redirect_to_FoWL_net(pkt[IP].src)
             self.enacted_ban_rule_ids.append(khd)
         else:
             logger.colorize(f"Conditions matched but no IP? (for pkt:\n {pkt})")
