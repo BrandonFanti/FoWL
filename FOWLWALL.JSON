@@ -35,7 +35,7 @@
         {
             "name":"See all TCP",
             "description": "Send all TCP traffic to sample_custom_handler",
-            "rule": "tcp.syn == any",
+            "rule": "tcp.syn",
             "with": "sample_custom_handler.handle"
         },
         {
