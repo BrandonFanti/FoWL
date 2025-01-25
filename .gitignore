@@ -2,3 +2,4 @@
 log/*
 data/*
 .gitignore
+FOWLWALL_custom.json
