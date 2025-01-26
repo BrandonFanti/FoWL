@@ -50,7 +50,7 @@
             "name":"Notify device connection",
             "method":"MQTT",
             "rule": "dhcp and device.mac == 'fe:64:b7:67:66:9C' or (device.mac == 'fe:64:b7:67:66:9D' and dhcp)",
-            "with": "MQTT.dummy"
+            "with": "notify.mqtt_handler"
         }
     ],
     "whitelist":[

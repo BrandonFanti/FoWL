@@ -39,7 +39,7 @@ try:
     from database import RAM_CACHE
     from lazy_logger.my_logger import Logger_Base 
     from misc import timeit
-    from scapy_handler import Unhandled_Scapy_Type
+    from iscapy.scapy_handler import Unhandled_Scapy_Type
     from iproute_detection import get_interface_info
 
     from FOWL_WALL_Parser import wall_config_parser, wall_config_rule

@@ -8,7 +8,7 @@ import inspect
 from traceback import format_exception
 import notify
 
-from netfilter_manager import netfilter_manager
+from .netfilter_manager import netfilter_manager
 
 import re
 from datetime import datetime, timedelta
@@ -647,7 +647,7 @@ class config_cls:
         #print(f"Successfully parsed notification methods")
 
 class config_parser:
-    _native_notify_methods = {'MQTT':notify.mqtt.handler}
+    _native_notify_methods = {'MQTT':notify.mqtt_handler}
 
     def __init__(self, *args, **kwargs):
         pass

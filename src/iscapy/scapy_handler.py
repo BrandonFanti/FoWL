@@ -437,7 +437,7 @@ def handle(pkt, *args, logger=None, **kwargs):
     # logger=Logger_Base(name="scapy_handler")
 
     #TODO: remove me! Interesting things inside.
-    #if spkt.dst == '127.0.0.1': return
+    if spkt.dst == '127.0.0.1': return
 
     # if spkt.dst != '192.168.1.218': return
     # if not spkt.haslayer(ICMP): return

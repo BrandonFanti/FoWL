@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from FOWL_WALL_Parser import wall_config_rule
 from lazy_logger.my_logger import Logger_Base
-from scapy_handler import handle, Unhandled_Scapy_Type
+from iscapy.scapy_handler import handle, Unhandled_Scapy_Type
 
 class engine_exit:
     def __init__(self, reason="Caller did not declare an exit reason"): 

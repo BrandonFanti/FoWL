@@ -19,7 +19,7 @@ class netfilter_manager:
     name = __name__
     log_file=f"log/{name}-Sess-{ts()}.log"
     logger=Logger_Base(name=name, file_path=log_file, log_level=20) #level 20 is info
-    logger.enable_debug()
+    # logger.enable_debug()
     netlink_ns = 'ns_FoWL'
     veth_pair = ("FoWL0", "FoWL1")
 

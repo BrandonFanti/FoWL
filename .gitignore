@@ -2,4 +2,7 @@
 log/*
 data/*
 .gitignore
-FOWLWALL_custom.json
+FOWLWALL_*.json
+../Scrap*
+../latest.log
+other_projects/
