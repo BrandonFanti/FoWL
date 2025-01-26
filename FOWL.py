@@ -42,7 +42,7 @@ try:
     from iscapy.scapy_handler import Unhandled_Scapy_Type
     from iproute_detection import get_interface_info
 
-    from FOWL_WALL_Parser import wall_config_parser, wall_config_rule
+    from FOWL_WALL_Parser import wall_config_parser, wall_config_rule, WarnConfigParserError
 
     #     -----------------------------------------------------------------------------------------------         #
     #  Logging, configuration, pre-checks, sockets defined here
@@ -75,7 +75,9 @@ try:
     wall_callbacks = None
 
     def safe_exit(stop_rengine=True, reason=None):
-        wall_config.tear_down()
+        logger.info(f"Stopping FoWL: Why? {reason}.")
+        if wall_config:
+            wall_config.tear_down()
         if rengine and stop_rengine:
             rengine.stop(
                 engine_exit(
@@ -88,11 +90,28 @@ try:
         if rdb: rdb.save(force=True)
         sys.exit(0)
 
+    def interrupt_handler(sig, frame):
+        logger.info("CTRL+C detected: Saving and shutting down...")
+        safe_exit(reason="User interrupted")
+
+    signal.signal(signal.SIGINT, interrupt_handler)
 
     if fowl_args.fowl_firewall_config_path:
-        wall_config = wall_config_parser.parse_file(fowl_args.fowl_firewall_config_path)
-        wall_callbacks = [*wall_config.custom_calls, *wall_config.f2b_callbacks]
+        try:
+            logger.info(f"Parsing FOWLWALL config: {fowl_args.fowl_firewall_config_path}")
+            wall_config = wall_config_parser.parse_file(fowl_args.fowl_firewall_config_path)
+            wall_callbacks = [*wall_config.custom_calls, *wall_config.f2b_callbacks]
+        except Exception as e:
+            if isinstance(e, WarnConfigParserError):
+                logger.warn(f"The failing rule was ({e.name}) with rule string '{e.rule}', the root exception:")
+                logger.exception(e)
+            else:
+                logger.exception(e)
+            logger.warn("Failed to parse FOWLWALL config - procede without it? (aka, no firewall updates)")
+            logger.warn("(CTRL+C (2x) to exit, Enter to continue)")
+            input()
 
+    # safe_exit(reason="Dev test")
 
     if fowl_args.file:
         print(fowl_args.file)
@@ -155,12 +174,6 @@ try:
     rengine = realtime_engine(app_args=fowl_args, database=rdb)
     rproc = rengine.start_engine(callbacks=wall_callbacks)
 
-    def interrupt_handler(sig, frame):
-        logger.info("CTRL+C detected: Saving and shutting down...")
-        safe_exit(reason="User interrupted")
-
-    signal.signal(signal.SIGINT, interrupt_handler)
-
     # @timeit
     def get_packet() -> (datetime, supersocket.SuperSocket, packet.Packet) or None:
         try:
@@ -220,6 +233,7 @@ try:
                             logger.info(m.source_file_dot_function)
                             logger.warn(f"crash from packet: ")
                             logger.info(m.packet_dump)
+                        else: continue
 
                         if fowl_args.crash_on_exception:
                             logger.debug(f"Exiting... {m}")
@@ -227,6 +241,7 @@ try:
 
                     if isinstance(m, Exception):
                         logger.warn(f"Engine exception reported: {m.__class__}")
+                        if hasattr(m, 'trace'): logger.warn(m.trace)
                         logger.exception(m)
                         if fowl_args.crash_on_exception:
                             logger.debug(f"Exiting... {m}")

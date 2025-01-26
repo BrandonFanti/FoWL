@@ -54,7 +54,7 @@ class netfilter_manager:
         )
 
         self.veth_pair = ipr.poll(
-            ipr.link, 'dump', timeout=5, ifname=lambda x: x in self.veth_pair
+            ipr.link, 'dump', ifname=lambda x: x in self.veth_pair
         )
 
         for pair_index, link in enumerate(self.veth_pair):
@@ -169,6 +169,9 @@ class netfilter_manager:
     #             chain=chain, 
     #             action="drop"
     #         )
+
+    def in_FoWLands(self, address):
+        return address in self.fowlin_host_list
 
     def redirect_to_FoWL_net(self, address, table='ip nat', chain='PREROUTING'):
         if not address in self.fowlin_host_list:

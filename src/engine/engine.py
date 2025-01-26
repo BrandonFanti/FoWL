@@ -182,18 +182,17 @@ class realtime_engine(engine):
                 try:
                     if callbacks:
                         for i,cb in enumerate(callbacks):
-                            if isinstance(cb, wall_config_rule):
-                                # self.logger.debug(f"Checking callback rule {cb.name}({i+1} of {len(callbacks)})")
-                                try:
-                                    if cb._translated_rule == '': self.logger.warn(f"callback has no rule? {cb.name}")
-                                    if cb.check_conditions(in_o, database_cli=self.database):
-                                            cb.call(*in_o, rule=cb)
-                                except Exception as e:
-                                    # self.eq.put(e) #TODO: Reconsider?
-                                    continue
+                            # self.logger.debug(f"Checking callback rule {cb.name}({i+1} of {len(callbacks)})")
+                            try:
+                                if cb._translated_rule == '': self.logger.warn(f"callback has no rule? {cb.name}")
+                                if cb.check_conditions(in_o, database_cli=self.database):
+                                        cb.call(*in_o, database_cli=self.database)
+                            except Exception as e:
+                                self.eq.put(e) #TODO: Reconsider?
+                                continue
                         # callbacks(in_o, *args, logger=self.logger, database=self.database, **kwargs)
                         # continue
-                    handle(in_o, *args, logger=self.logger, database=self.database, **kwargs)
+                    # handle(in_o, *args, logger=self.logger, database=self.database, **kwargs)
                 except Exception as e:
                     #If we should *not* report this:
                     if hasattr(self, 'app_args') and self.app_args.suppress_handler and \

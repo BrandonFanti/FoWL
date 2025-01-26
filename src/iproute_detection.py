@@ -21,7 +21,7 @@ def get_interface_info(**kwargs):
     if not logger:
         from lazy_logger.my_logger import Logger_Base
         logger=Logger_Base(name=__name__)
-        if debug: logger.enable_debug()
+        # if debug: logger.enable_debug()
 
     # [logger.debug(f"{pprint.pformat(addrs)}") for name,addrs in interface_addrs]
     # logger.debug(f"{pprint.pformat(ipr.get_routes(family=AF_INET))}")

@@ -12,8 +12,9 @@ from misc import wut
 from traceback import format_exception
 
 class Unhandled_Scapy_Type(Exception):
-    def __init__(self, message, packet, engine, trace=None):
+    def __init__(self, message, packet, engine, trace=None, root_exception=None):
         super().__init__(message)
+        self.root_exception=root_exception
         self.trace = trace
         self.timestamp = packet[0]
         self.packet=packet[2]
@@ -254,7 +255,7 @@ def handle_http(packet):
         sport=spkt.dport, dport=spkt.sport, flags="A",
         seq=1, ack=spkt.seq+1,
     )
-    send(response)
+    send(response, verbose=False)
 
 
     response = IP(src=spkt[IP].dst, dst=spkt[IP].src)\
@@ -264,7 +265,7 @@ def handle_http(packet):
             )
     response = response / HTTP() / HTTPResponse(Server="Hackneyed") / "<html><Title>Lame</Title>Hi</html>"
     logger.debug(f"Forged HTTP response packet: {response.show2(dump=True)}")
-    send(response)
+    send(response, verbose=False)
     return
 
 def handle_tcp(packet, db=None) -> None:
@@ -299,7 +300,7 @@ def handle_tcp(packet, db=None) -> None:
         db.add_to_key("Probable_Scanner", spkt[IP].src)
         return
 
-    if spkt.dport == 443 or spkt.sport == 443:
+    if spkt.dport == 443:
         raise Unhandled_Scapy_Type("Unhandled TCP - a scraper request?", packet, None)
 
     if spkt.dport == 80:
@@ -328,7 +329,7 @@ def handle_tcp(packet, db=None) -> None:
                 raise Unhandled_Scapy_Type("Unhandled TCP - response could not be generated", packet, None)
 
             logger.debug(f"Spoofing response: {response.show2(dump=True)}")
-            send(response)
+            send(response, verbose=False)
         return
 
     if spkt['TCP'].flags == "FA":
@@ -338,7 +339,7 @@ def handle_tcp(packet, db=None) -> None:
                     seq=0, ack=spkt.seq+1,
                 )
 
-        send(response)
+        send(response, verbose=False)
 
         return
 
@@ -456,6 +457,7 @@ def handle(pkt, *args, logger=None, **kwargs):
                 database.add_to_key(f"host.{host_src}.MAC.dst", spkt[Ether].dst)
 
         if spkt.haslayer(IP):
+            if spkt.sport == 443: return
             return handle_ip(pkt, db=database, logger=logger)
 
         if spkt.haslayer(EAPOL):
@@ -478,5 +480,6 @@ def handle(pkt, *args, logger=None, **kwargs):
             #     wut(spkt)
             pass
     except Exception as e:
-        e.trace = "".join(format_exception(type(e), e, e.__traceback__))
-        raise e
+        trace = "".join(format_exception(type(e), e, e.__traceback__))
+        raise Unhandled_Scapy_Type("Top-level-handler Exception", pkt, None, trace=trace, root_exception=e)
+

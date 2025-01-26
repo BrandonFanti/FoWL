@@ -9,7 +9,8 @@
             {
                 "name": "Block hosts who touch port 80",
                 "rule": "tcp.syn and net.dst.port==80",
-                "period": "forever"
+                "period": "forever",
+                "with":"sample_custom_handler.record_ban"
             },
             {
                 "name": "Block hosts who touch port 443",
@@ -33,15 +34,9 @@
     },
     "custom_handler":[
         {
-            "name":"See all TCP",
+            "name":"See all 'BANNED' TCP",
             "description": "Send all TCP traffic to sample_custom_handler",
-            "rule": "tcp.syn",
-            "with": "sample_custom_handler.handle"
-        },
-        {
-            "name":"Banned",
-            "description": "Banned host's will receive the 'Hackneyed' server's 'Lame' title page - for any port",
-            "rule": "host.banned and tcp.syn == any",
+            "rule": "host.banned and (tcp.syn or tcp.ack)",
             "with": "sample_custom_handler.handle"
         }
     ],

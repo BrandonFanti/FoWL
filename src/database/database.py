@@ -34,7 +34,11 @@ class RAM_CACHE(database):
         super().__init__(*args, **kwargs)
 
     def get(self, key):
-        return self.b[key]
+        try:
+            return self.b[key]
+        except KeyError as e:
+            self.logger.debug(f"KeyError for key {key}")
+            return None
 
     def set_key(self, key, value):
         #self.logger.debug(f"Recording {key} -> {value}")
